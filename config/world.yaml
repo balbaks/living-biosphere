@@ -38,7 +38,7 @@ species:
 
 intervention:
   enabled: true
-  shock_probability: 0.001  # per tick
+  shock_probability: 0.0003  # per tick -- tuned for ~10% shock coverage (rare/notable), was 0.001 (produced 35-48% coverage)
   announcement_lead_ticks: 500
   temp_floor: 0.15  # combined temperature multiplier never drops below this, even with stacked shocks
   temp_ceiling: 2.5  # combined temperature multiplier never rises above this
