@@ -39,12 +39,16 @@ intervention:
   enabled: true
   shock_probability: 0.001  # per tick
   announcement_lead_ticks: 500
+  temp_floor: 0.15  # combined temperature multiplier never drops below this, even with stacked shocks
+  temp_ceiling: 2.5  # combined temperature multiplier never rises above this
   shock_types:
     - name: "ice_age"
-      temp_drop: 0.5
+      temp_drop: 0.5      # multiplies temperature while active
+      duration_ticks: 800  # reverts automatically after this many ticks
       resource_clump: true
     - name: "heat_wave"
-      temp_rise: 0.5
+      temp_rise: 1.5       # multiplies temperature while active (was 0.5 — inverted, cooled instead of warmed)
+      duration_ticks: 800  # reverts automatically after this many ticks
       resource_scatter: true
     - name: "famine"
       resource_regen_mult: 0.2

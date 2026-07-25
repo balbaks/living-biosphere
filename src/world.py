@@ -15,6 +15,15 @@ class ShockEvent:
     triggered: bool = False
 
 @dataclass
+class ActiveShock:
+    """A temperature-affecting shock currently in effect. Expires and
+    reverts on its own schedule; multiple can overlap and stack
+    multiplicatively while active."""
+    name: str
+    end_tick: int
+    multiplier: float
+
+@dataclass
 class FossilRecord:
     tick: int
     event_type: str
@@ -56,6 +65,12 @@ class World:
         self.current_regen_mult = 1.0
         self.shock_end_tick = 0
 
+        self.temp_baseline = 1.0
+        self.active_temp_shocks: List[ActiveShock] = []
+        icfg = config.get("intervention", {})
+        self.temp_floor = icfg.get("temp_floor", 0.15)
+        self.temp_ceiling = icfg.get("temp_ceiling", 2.5)
+
         self._seed_resources()
         self._spawn_initial()
         self._update_species()
@@ -96,8 +111,9 @@ class World:
     def tick_step(self) -> Dict:
         self.tick += 1
 
-        self._regen_resources()
         self._handle_shocks()
+        self._update_temperature()
+        self._regen_resources()
         self._creature_actions()
         self._remove_dead()
 
@@ -135,11 +151,31 @@ class World:
         self.rescue_count += 1
         self._log_event("rescue", f"Population rescue #{self.rescue_count} at tick {self.tick}")
 
+    def _update_temperature(self):
+        """Expire any temperature shocks past their end_tick, then
+        recompute temperature from baseline * still-active multipliers.
+        Multiple active shocks stack multiplicatively; each reverts
+        independently on its own end_tick."""
+        still_active = []
+        for shock in self.active_temp_shocks:
+            if self.tick >= shock.end_tick:
+                self._log_event("shock_end", f"{shock.name.replace('_', ' ').title()} ends, temperature recovering")
+            else:
+                still_active.append(shock)
+        self.active_temp_shocks = still_active
+
+        combined = self.temp_baseline
+        for shock in self.active_temp_shocks:
+            combined *= shock.multiplier
+        combined = float(np.clip(combined, self.temp_floor, self.temp_ceiling))
+        self.temperature = np.full(self.temperature.shape, combined, dtype=np.float32)
+
     def _regen_resources(self):
         cfg = self.cfg["resources"]
         regen = self.base_regen * self.current_regen_mult * float(self.temperature.mean())
 
-        if any(s.name == "ice_age" and s.triggered for s in self.shocks):
+        ice_age_active = any(s.name == "ice_age" for s in self.active_temp_shocks)
+        if ice_age_active:
             mask = self.resources > self.resources.mean()
             self.resources[mask] += regen * 2.0
             self.resources[~mask] += regen * 0.2
@@ -177,11 +213,15 @@ class World:
 
     def _apply_shock(self, shock: ShockEvent):
         if shock.name == "ice_age":
-            self.temperature *= shock.params.get("temp_drop", 0.6)
-            self._log_event("shock", "Ice Age begins")
+            mult = shock.params.get("temp_drop", 0.5)
+            duration = shock.params.get("duration_ticks", 800)
+            self.active_temp_shocks.append(ActiveShock(name="ice_age", end_tick=self.tick + duration, multiplier=mult))
+            self._log_event("shock", f"Ice Age begins (lasts {duration} ticks)")
         elif shock.name == "heat_wave":
-            self.temperature = np.minimum(self.temperature * shock.params.get("temp_rise", 1.4), 2.5)
-            self._log_event("shock", "Heat wave strikes")
+            mult = shock.params.get("temp_rise", 1.4)
+            duration = shock.params.get("duration_ticks", 800)
+            self.active_temp_shocks.append(ActiveShock(name="heat_wave", end_tick=self.tick + duration, multiplier=mult))
+            self._log_event("shock", f"Heat wave strikes (lasts {duration} ticks)")
         elif shock.name == "famine":
             self.current_regen_mult = shock.params.get("resource_regen_mult", 0.3)
             self.shock_end_tick = self.tick + shock.params.get("duration_ticks", 500)
