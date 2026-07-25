@@ -44,6 +44,7 @@ class World:
         self.tick = 0
         self.creatures: Dict[int, Creature] = {}
         self.next_creature_id = 1
+        self.next_species_id = 1
         self.species_map: Dict[int, List[int]] = {}
         self.species_reps: Dict[int, Genome] = {}
         self.species_ages: Dict[int, int] = {}
@@ -362,7 +363,8 @@ class World:
                     break
 
             if not matched:
-                sid = max(self.species_reps.keys(), default=0) + 1
+                sid = self.next_species_id
+                self.next_species_id += 1
                 new_map[sid] = [c.id for c in cluster]
                 new_reps[sid] = Genome(rep.genes)
                 self.species_ages[sid] = self.tick
