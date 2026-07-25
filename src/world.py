@@ -22,6 +22,10 @@ class ActiveShock:
     name: str
     end_tick: int
     multiplier: float
+    clump: bool = False
+    refugia_fraction: float = 0.0
+    refugia_bonus_mult: float = 1.0
+    refugia_penalty_mult: float = 1.0
 
 @dataclass
 class FossilRecord:
@@ -174,11 +178,12 @@ class World:
         cfg = self.cfg["resources"]
         regen = self.base_regen * self.current_regen_mult * float(self.temperature.mean())
 
-        ice_age_active = any(s.name == "ice_age" for s in self.active_temp_shocks)
-        if ice_age_active:
-            mask = self.resources > self.resources.mean()
-            self.resources[mask] += regen * 2.0
-            self.resources[~mask] += regen * 0.2
+        clumping_shock = next((s for s in self.active_temp_shocks if s.clump), None)
+        if clumping_shock:
+            cutoff = np.percentile(self.resources, (1 - clumping_shock.refugia_fraction) * 100)
+            mask = self.resources >= cutoff
+            self.resources[mask] += regen * clumping_shock.refugia_bonus_mult
+            self.resources[~mask] += regen * clumping_shock.refugia_penalty_mult
         else:
             self.resources += regen
 
@@ -215,7 +220,13 @@ class World:
         if shock.name == "ice_age":
             mult = shock.params.get("temp_drop", 0.5)
             duration = shock.params.get("duration_ticks", 800)
-            self.active_temp_shocks.append(ActiveShock(name="ice_age", end_tick=self.tick + duration, multiplier=mult))
+            self.active_temp_shocks.append(ActiveShock(
+                name="ice_age", end_tick=self.tick + duration, multiplier=mult,
+                clump=shock.params.get("resource_clump", False),
+                refugia_fraction=shock.params.get("refugia_fraction", 0.15),
+                refugia_bonus_mult=shock.params.get("refugia_bonus_mult", 2.0),
+                refugia_penalty_mult=shock.params.get("refugia_penalty_mult", 0.2),
+            ))
             self._log_event("shock", f"Ice Age begins (lasts {duration} ticks)")
         elif shock.name == "heat_wave":
             mult = shock.params.get("temp_rise", 1.4)

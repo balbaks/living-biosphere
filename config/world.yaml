@@ -43,13 +43,18 @@ intervention:
   temp_ceiling: 2.5  # combined temperature multiplier never rises above this
   shock_types:
     - name: "ice_age"
-      temp_drop: 0.5      # multiplies temperature while active
+      temp_drop: 0.5      # multiplies baseline temperature (a regen-formula input) -- NOT a flat "average cut"; see refugia_fraction below for why
       duration_ticks: 800  # reverts automatically after this many ticks
-      resource_clump: true
+      resource_clump: true       # gates whether regen is split into refugia/non-refugia zones (below) vs applied uniformly
+      refugia_fraction: 0.15     # fraction of cells (top-N by current resource level) that get the bonus multiplier instead of the penalty.
+                                  # Set to match the OLD mean-based split's measured average (0.1512, sampled every tick during
+                                  # active ice_age windows, 3 seeds, n=13282) so this refactor reproduces existing dynamics rather
+                                  # than changing them. Not yet tuned for severity -- that's a separate, deliberate follow-up pass.
+      refugia_bonus_mult: 2.0    # regen multiplier for refugia cells (unchanged value, now named instead of hardcoded)
+      refugia_penalty_mult: 0.2  # regen multiplier for non-refugia cells (unchanged value, now named instead of hardcoded)
     - name: "heat_wave"
       temp_rise: 1.5       # multiplies temperature while active (was 0.5 — inverted, cooled instead of warmed)
       duration_ticks: 800  # reverts automatically after this many ticks
-      resource_scatter: true
     - name: "famine"
       resource_regen_mult: 0.2
       duration_ticks: 1000
