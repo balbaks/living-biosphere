@@ -57,8 +57,8 @@ intervention:
       temp_rise: 1.5       # multiplies temperature while active (was 0.5 — inverted, cooled instead of warmed)
       duration_ticks: 800  # reverts automatically after this many ticks
     - name: "famine"
-      resource_regen_mult: 0.2
-      duration_ticks: 1000
+      resource_regen_mult: 0.65  # tuned for zero-rescue survivability, was 0.2 -- this was proposed and verified earlier but never applied until now
+      duration_ticks: 600        # tuned for zero-rescue survivability, was 1000
 
 rng:
   seed: null  # null = random, set for reproducible runs
