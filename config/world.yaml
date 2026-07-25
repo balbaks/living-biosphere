@@ -52,7 +52,7 @@ intervention:
                                   # active ice_age windows, 3 seeds, n=13282) so the percentile refactor reproduced existing dynamics
                                   # rather than changing them. Left unchanged during severity tuning -- genuine scarcity, not a dial.
       refugia_bonus_mult: 2.0    # regen multiplier for refugia cells (unchanged -- untuned knob, refugia cells were already survivable)
-      refugia_penalty_mult: 0.85 # regen multiplier for non-refugia cells -- tuned for zero-rescue survivability, was 0.2
+      refugia_penalty_mult: 0.9  # regen multiplier for non-refugia cells -- tuned for zero-rescue survivability at shock_probability=0.0003, was 0.2
     - name: "heat_wave"
       temp_rise: 1.5       # multiplies temperature while active (was 0.5 — inverted, cooled instead of warmed)
       duration_ticks: 800  # reverts automatically after this many ticks
