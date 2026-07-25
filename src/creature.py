@@ -14,6 +14,7 @@ class Creature:
     generation: int = 0
     species_id: Optional[int] = None
     parent_id: Optional[int] = None
+    parent_species_id: Optional[int] = None
     alive: bool = True
 
     @property
@@ -54,6 +55,7 @@ class Creature:
             age=0,
             generation=self.generation + 1,
             parent_id=self.id,
+            parent_species_id=self.species_id,
         )
 
     def __hash__(self):

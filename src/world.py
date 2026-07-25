@@ -4,7 +4,8 @@ import time
 from typing import List, Dict, Optional
 from dataclasses import dataclass, field
 from src.creature import Creature
-from src.genome import Genome
+from src.genome import Genome, GENE_NAMES
+from src import persistence
 
 @dataclass
 class ShockEvent:
@@ -32,10 +33,9 @@ class FossilRecord:
     tick: int
     event_type: str
     species_id: Optional[int]
-    genome_snapshot: List[float]
+    genome_snapshot: Dict[str, float]
     population: int
-    parent_id: Optional[int]
-    rng_seed: int
+    parent_species_id: Optional[int]
     metadata: Dict = field(default_factory=dict)
 
 class World:
@@ -49,6 +49,7 @@ class World:
         self.species_reps: Dict[int, Genome] = {}
         self.species_ages: Dict[int, int] = {}
         self.species_extinct: Dict[int, int] = {}
+        self.species_parent: Dict[int, Optional[int]] = {}
         self.fossil_record: List[FossilRecord] = []
         self.shocks: List[ShockEvent] = []
         self.pending_shock: Optional[ShockEvent] = None
@@ -76,9 +77,25 @@ class World:
         self.temp_floor = icfg.get("temp_floor", 0.15)
         self.temp_ceiling = icfg.get("temp_ceiling", 2.5)
 
+        db_path = config["world"].get("db_path")
+        if db_path:
+            self.db_conn = persistence.open_db(db_path)
+            self.run_id = persistence.start_run(self.db_conn, config, self.rng_seed)
+        else:
+            self.db_conn = None
+            self.run_id = None
+
         self._seed_resources()
         self._spawn_initial()
         self._update_species()
+
+    def shutdown(self):
+        """Call on clean exit only. A killed process never reaches
+        this, which is the point: ended_at_tick distinguishes a run
+        that finished from one that just stopped."""
+        if self.db_conn is not None:
+            persistence.end_run(self.db_conn, self.run_id, self.tick)
+            self.db_conn.close()
 
     def _seed_resources(self):
         cfg = self.cfg["resources"]
@@ -369,6 +386,18 @@ class World:
                 new_reps[sid] = Genome(rep.genes)
                 self.species_ages[sid] = self.tick
 
+                # Exact lineage, not inferred: majority non-null
+                # parent_species_id among the founding cluster's
+                # creatures. Each creature was stamped with its
+                # parent's species_id at the moment of birth (the only
+                # point both exist, since dead creatures are removed).
+                parent_counts: Dict[Optional[int], int] = {}
+                for c in cluster:
+                    psid = c.parent_species_id
+                    if psid is not None:
+                        parent_counts[psid] = parent_counts.get(psid, 0) + 1
+                self.species_parent[sid] = max(parent_counts, key=parent_counts.get) if parent_counts else None
+
         old_ids = set(self.species_map.keys())
         new_ids = set(new_map.keys())
 
@@ -378,7 +407,7 @@ class World:
                 self._fossilize(extinct_sid, "extinction")
 
         for new_sid in new_ids - old_ids:
-            self._fossilize(new_sid, "species_emergence", parent_id=None)
+            self._fossilize(new_sid, "species_emergence", parent_species_id=self.species_parent.get(new_sid))
 
         self.species_map = new_map
         self.species_reps = new_reps
@@ -413,22 +442,24 @@ class World:
 
         return clusters
 
-    def _fossilize(self, species_id: int, event_type: str, parent_id: Optional[int] = None):
+    def _fossilize(self, species_id: int, event_type: str, parent_species_id: Optional[int] = None):
         if species_id not in self.species_reps:
             return
         rep = self.species_reps[species_id]
         pop = len(self.species_map.get(species_id, []))
 
-        self.fossil_record.append(FossilRecord(
+        record = FossilRecord(
             tick=self.tick,
             event_type=event_type,
             species_id=species_id,
-            genome_snapshot=rep.genes.tolist(),
+            genome_snapshot=dict(zip(GENE_NAMES, rep.genes.tolist())),
             population=pop,
-            parent_id=parent_id,
-            rng_seed=self.run_rng_seed,
+            parent_species_id=parent_species_id if parent_species_id is not None else self.species_parent.get(species_id),
             metadata={"temp_mean": float(self.temperature.mean())}
-        ))
+        )
+        self.fossil_record.append(record)
+        if self.db_conn is not None:
+            persistence.write_fossil(self.db_conn, self.run_id, record)
 
     def _snapshot_fossils(self):
         for sid in self.species_map:

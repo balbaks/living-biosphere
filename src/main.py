@@ -25,6 +25,8 @@ def run_simulation(config, max_ticks=None, print_interval=100):
     
     world = World(config)
     print(f"RNG seed: {world.rng_seed}")
+    if world.run_id is not None:
+        print(f"DB run_id: {world.run_id}")
     print("=" * 60)
     print(f"{'Tick':>8} {'Creatures':>10} {'Species':>8} {'AvgEnergy':>10} {'MutRate':>10} {'Temp':>6}")
     print("-" * 60)
@@ -51,7 +53,9 @@ def run_simulation(config, max_ticks=None, print_interval=100):
     except KeyboardInterrupt:
         print("\n" + "=" * 60)
         print("Simulation stopped by user.")
-    
+    finally:
+        world.shutdown()
+
     elapsed = time.time() - start_time
     print(f"\nRan {world.tick} ticks in {elapsed:.1f}s ({world.tick/elapsed:.0f} ticks/sec)")
     print(f"Final: {stats['creatures']} creatures, {stats['species']} species")

@@ -3,7 +3,8 @@ world:
   height: 100
   max_ticks: 0  # 0 = run forever
   tick_speed_ms: 100
-  save_interval: 100  # ticks between SQLite writes
+  save_interval: 100  # ticks between periodic fossil snapshots (each fossil event, snapshot or otherwise, writes to SQLite immediately)
+  db_path: "data/biosphere.db"  # set to null/omit to disable persistence (used by isolated test scripts)
 
 resources:
   base_regen_rate: 0.02
