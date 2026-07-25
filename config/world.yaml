@@ -1,0 +1,54 @@
+world:
+  width: 100
+  height: 100
+  max_ticks: 0  # 0 = run forever
+  tick_speed_ms: 100
+  save_interval: 100  # ticks between SQLite writes
+
+resources:
+  base_regen_rate: 0.02
+  max_cell_energy: 100.0
+  regen_clusters: true
+  cluster_size: 5
+
+creatures:
+  initial_population: 50
+  max_population: 500
+  base_energy: 50.0
+  energy_cost_move: 1.0
+  energy_cost_live: 0.5
+  energy_gain_eat: 15.0
+  repro_threshold: 80.0
+  repro_cost: 40.0
+  max_age: 500
+
+genome:
+  # [move_eff, size, diet_type, repro_thresh, aggression, mut_rate]
+  min_values: [0.1, 0.5, 0.0, 30.0, 0.0, 0.001]
+  max_values: [2.0, 3.0, 1.0, 100.0, 1.0, 0.1]
+  default_mut_rate: 0.02
+
+species:
+  target_count_min: 3
+  target_count_max: 15
+  neat_compat_threshold: 3.0
+  min_cluster_size: 5
+  survival_generations: 3
+
+intervention:
+  enabled: true
+  shock_probability: 0.001  # per tick
+  announcement_lead_ticks: 500
+  shock_types:
+    - name: "ice_age"
+      temp_drop: 0.5
+      resource_clump: true
+    - name: "heat_wave"
+      temp_rise: 0.5
+      resource_scatter: true
+    - name: "famine"
+      resource_regen_mult: 0.2
+      duration_ticks: 1000
+
+rng:
+  seed: null  # null = random, set for reproducible runs
