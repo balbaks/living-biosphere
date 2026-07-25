@@ -159,6 +159,7 @@ class World:
 
     def _rescue_population(self):
         w, h = self.resources.shape
+        new_creatures = []
         for _ in range(8):
             x, y = random.randint(0, w-1), random.randint(0, h-1)
             c = Creature(
@@ -169,9 +170,31 @@ class World:
                 generation=0,
             )
             self.creatures[c.id] = c
+            new_creatures.append(c)
             self.next_creature_id += 1
         self.rescue_count += 1
         self._log_event("rescue", f"Population rescue #{self.rescue_count} at tick {self.tick}")
+
+        # Permanent, unconditional: rescues manufacture creatures with
+        # random genomes far from existing clusters, which the species
+        # clustering will likely register as emergences on the next
+        # _update_species() pass. Logging the rescue itself as its own
+        # fossil event_type means any downstream analysis can identify
+        # and exclude turnover caused by life support rather than
+        # evolvability, instead of silently conflating the two.
+        avg_genes = np.mean([c.genome.genes for c in new_creatures], axis=0)
+        record = FossilRecord(
+            tick=self.tick,
+            event_type="rescue",
+            species_id=None,
+            genome_snapshot=dict(zip(GENE_NAMES, avg_genes.tolist())),
+            population=len(new_creatures),
+            parent_species_id=None,
+            metadata={"rescue_number": self.rescue_count, "temp_mean": float(self.temperature.mean())}
+        )
+        self.fossil_record.append(record)
+        if self.db_conn is not None:
+            persistence.write_fossil(self.db_conn, self.run_id, record)
 
     def _update_temperature(self):
         """Expire any temperature shocks past their end_tick, then
