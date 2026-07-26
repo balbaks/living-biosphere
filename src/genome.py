@@ -27,8 +27,13 @@ class Genome:
         else:
             self.genes = np.clip(genes.copy(), GENE_MIN, GENE_MAX)
 
-    def mutate(self) -> "Genome":
-        """Return a mutated copy. Mutation rate itself is gene 5."""
+    def mutate(self, floor: float = 0.002) -> "Genome":
+        """Return a mutated copy. Mutation rate itself is gene 5.
+
+        floor is a parameter, not a global/class constant, specifically
+        so the Section 1 floor-sensitivity sweep can vary it per-arm
+        under multiprocessing without any shared mutable state across
+        worker processes."""
         mut_rate = float(self.genes[MUT_RATE])
         mask = np.random.random(len(self.genes)) < mut_rate
         if not mask.any():
@@ -40,8 +45,8 @@ class Genome:
         child = np.clip(child, GENE_MIN, GENE_MAX)
 
         # Ensure mut_rate doesn't collapse to zero
-        if child[MUT_RATE] < 0.002:
-            child[MUT_RATE] = 0.002
+        if child[MUT_RATE] < floor:
+            child[MUT_RATE] = floor
 
         return Genome(child)
 

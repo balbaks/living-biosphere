@@ -80,6 +80,9 @@ class World:
         # Section 1.2 Arm B/B2: pins the mutation-rate gene instead of
         # letting it evolve. None (default) leaves normal evolution intact.
         self.fixed_mutation_rate = config.get("genome", {}).get("fixed_mutation_rate")
+        # Section 1 floor-sensitivity sweep: only affects evolving arms
+        # (ignored wherever fixed_mutation_rate is set).
+        self.mutation_rate_floor = config.get("genome", {}).get("mutation_rate_floor", 0.002)
 
         db_path = config["world"].get("db_path")
         if db_path:
@@ -344,7 +347,9 @@ class World:
                 continue
 
             if c.can_reproduce() and len(self.creatures) < self.cfg["creatures"]["max_population"]:
-                child = c.offspring(self.next_creature_id, w, h, fixed_mutation_rate=self.fixed_mutation_rate)
+                child = c.offspring(self.next_creature_id, w, h,
+                                    fixed_mutation_rate=self.fixed_mutation_rate,
+                                    mutation_rate_floor=self.mutation_rate_floor)
                 self.next_creature_id += 1
                 c.energy -= c.reproduce_cost()
                 self.creatures[child.id] = child

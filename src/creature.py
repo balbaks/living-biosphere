@@ -38,13 +38,18 @@ class Creature:
     def reproduce_cost(self) -> float:
         return self.energy * 0.4
 
-    def offspring(self, next_id: int, world_w: int, world_h: int, fixed_mutation_rate: Optional[float] = None) -> "Creature":
+    def offspring(self, next_id: int, world_w: int, world_h: int,
+                  fixed_mutation_rate: Optional[float] = None,
+                  mutation_rate_floor: float = 0.002) -> "Creature":
         """Create a mutated child nearby.
 
-        fixed_mutation_rate, if set (Arm B/B2 of the Section 1.2 harness),
-        pins the child's mutation-rate gene instead of letting it evolve
-        like every other gene -- the whole point of that arm."""
-        child_genome = self.genome.mutate()
+        fixed_mutation_rate, if set (fixed-rate arms), pins the child's
+        mutation-rate gene instead of letting it evolve like every other
+        gene. mutation_rate_floor (evolving arms only -- ignored when
+        fixed_mutation_rate is set) is the Section 1 floor-sensitivity
+        sweep's knob, threaded through rather than a module-level
+        constant so it stays safe under multiprocessing."""
+        child_genome = self.genome.mutate(floor=mutation_rate_floor)
         if fixed_mutation_rate is not None:
             child_genome.genes[MUT_RATE] = fixed_mutation_rate
         dx = np.random.randint(-1, 2)
