@@ -426,3 +426,105 @@ Gate passes only if both are true: False.
 **Section 1.2 overall: FAIL**
 
 Per the pre-registration: this criterion is not adjusted after seeing these numbers. A FAIL here is a legitimate, informative result about the mutation-rate floor and/or shock frequency at the current config, not a defect in the harness.
+
+# Post-result audit: sparsity-bias objection, tested and withdrawn
+
+After the FAIL result above, a live question was raised: does gate 3's
+failure (and, more importantly, gates 1/2's passes) reflect a real
+effect, or a low-N artifact of `standardized_excess =
+observed_S2 / median(null_S2)`? The concern: at extreme sparsity,
+`median(null_S2)` is small and unstable, and dividing by it could
+inflate the ratio regardless of arm -- which would threaten the
+*passing* gates as much as excuse the failing one, since Arm A's
+lowest-N seed (49) and Arm D's lowest (96) used the exact same
+construction.
+
+**Settled on synthetic ground truth, same method as the S1-vs-S2
+choice, independent of these results.** Two synthetic process shapes,
+each held at a *fixed* true structure while only N varied from 14 to
+500 (matching the full observed range across all three arms), 30
+realizations per N, 200-permutation null each:
+
+- **Uniform (null-consistent) process:** mean standardized excess
+  stayed at 0.982-1.016 across the entire N range -- flat, no trend.
+  Confirms the ratio isn't inflated by construction when the true
+  process matches the null.
+- **Fixed 50% clustering fraction:** mean standardized excess *grew*
+  monotonically with N -- 1.012 at N=14 up to 4.444 at N=500. The
+  opposite of the suspected bias: a moderate, fixed-strength bursty
+  signal is *harder* to detect at low N, not easier.
+- **Single-burst-then-permanent-silence** (the actual frozen-seed
+  shape -- matches what "plateaued" looks like as a raw count series):
+  also grew monotonically with N -- 3.513 at N=14 up to 8.530 at
+  N=500. Arm B's real observed range (2.6-4.9 at N=14-49) sits
+  consistently within this curve's low-N region, meaning Arm B's
+  numbers are exactly what a genuinely near-maximally-clustered
+  sequence should produce at that N -- not an inflated artifact.
+
+**Result: no N-dependent bias found, in either direction, for either
+process shape tested.** Task 2's stated resolution applies: the
+objection is withdrawn on the record, unqualified. Gates 1, 2, and 3
+all stand exactly as computed in the results above; none needs
+revision. Raising the objection was reasonable given the mechanism
+was plausible on its face, but it doesn't survive the check, and the
+check -- not the plausibility of the story -- is what decides it.
+
+# Arm B collapse -- a new, unregistered hypothesis, not a rescued claim
+
+**This was not pre-registered and is not a Section 1.2 result.** It is
+what the run surfaced, reported as a candidate for the next
+pre-registration, not smuggled into this one's conclusion.
+
+Quantified directly from `data/section_1_2_raw_results.json`:
+
+| | Arm A (evolving) | Arm B (fixed 0.0053) | Arm D (evolving, no shocks) |
+|---|---|---|---|
+| N per seed | 221,311,240,166,285,493,49,148,403,327 | 22,20,17,36,18,26,34,14,44,49 | 217,225,205,181,374,343,254,207,316,96 |
+| N: min/max/median | 49/493/262.5 | 14/49/24.0 | 96/374/221.0 |
+| freeze rate | 2/10 | **7/10** | 1/10 |
+| time-to-freeze (plateaued seeds only, tick) | 9370, 17380 | 220, 290, 440, 550, 650, 3840, 7500 | 17620 |
+
+Arm B's median N (24.0) is roughly a **tenth** of Arm A's (262.5).
+70% of Arm B seeds froze, against 20% for Arm A and 10% for Arm D.
+And Arm B doesn't just freeze more often -- when it does, it freezes
+almost immediately: 5 of its 7 plateaued seeds stopped turning over at
+or before tick 650 (out of a 40,000-tick run) -- ticks 220, 290, 440,
+550, 650 -- while Arm A's and Arm D's plateaued seeds all froze much
+later (9370-17620) -- roughly a quarter to nearly half the run in, not
+the first two percent.
+
+**Candidate hypothesis for the next pre-registration**: a fixed
+mutation rate, unable to reduce itself the way an evolving one can,
+still lets the population converge quickly to a locally-stable
+genotype -- but then has no mechanism to sustain further turnover,
+since it can neither adapt toward stability (like Arm A's typical
+lineage) nor occasionally spike into an "explorer" regime (like Arm
+A's rare high-mutation tail, up to 0.1). The evolving mechanism may
+matter less for producing *burstiness* (which gate 3 tested and which
+failed) and more for simply **keeping the system turning over at
+all** -- a level/duration question, not a dispersion question.
+
+If pursued, this needs its own pre-registration: a statistic like
+sustained-turnover rate or time-to-freeze itself, validated on
+synthetic ground truth the same way S2 was, with its own null and its
+own arms -- not a re-litigation of this run's dispersion-based result.
+
+# Corrected prediction record
+
+Section 1.2's pre-registration predicted: "Arm D (shocks disabled) is
+the most likely to fail... nothing perturbs a settling population in
+this arm at all." **This was wrong.** Arm D passed 8/10, more than
+Arm A's 7/10, and had the lowest freeze rate of any arm (1/10, vs
+Arm A's 2/10 and Arm B's 7/10). Recorded here rather than dropped
+quietly, per the standard set for this whole document.
+
+**Honest one-line summary of Section 1.2, combining the FAIL result
+with the corrected prediction**: turnover structure exists in this
+world (Arms A and D both clear the within-arm dispersion test), it is
+not shock-driven (D matches or exceeds A with shocks fully disabled),
+and there is no evidence from this run that the *evolving* mutation
+rate is what produces it (gate 3 fails, and fails in the direction of
+B showing higher raw dispersion, not lower). What the evolving
+mechanism may actually be doing -- keeping turnover alive at all,
+rather than making it burstier -- is a different, unregistered
+question the Arm B write-up above raises for next time.
