@@ -916,3 +916,125 @@ It is evidence about what sustains *this specific measured quantity*,
 which was chosen as a proxy for "the world staying interesting," not
 as a definition of what selection is actually for. Both outcomes below
 should be read against that limit, not past it.
+
+# Process lesson: a disagreement between two measurements of the same quantity is a defect until proven otherwise
+
+Earlier this session, two different methods of counting species turnover
+(fossil-record-based, vs. reconstructing from the in-memory
+`species_ages`/`species_extinct` dicts) gave different numbers for the
+same runs. This was noticed, attributed to "methodology difference,"
+and the fossil-record-based count was adopted as canonical "since it's
+what the harness will actually use" -- without asking *why* the two
+disagreed. They disagreed because the fossil-record method was
+silently dropping every species_emergence event (see the bug below).
+The discrepancy was a visible symptom of exactly this bug, present in
+the data from early in the session, and it went unchased. Recorded as
+a standing rule: when two measurements of the same quantity disagree,
+that disagreement is itself a finding requiring an explanation before
+either number is trusted -- "pick the one that matches what we'll use
+going forward" is not a resolution.
+
+# Measurement bug found and fixed: species_emergence was never fossilized
+
+**Discovered while investigating a mechanistic question** (why does
+`fixed_0.2` show ~19,000 turnover events over 40,000 ticks) and turned
+into a much larger finding: **zero `species_emergence` fossil records
+exist in any database produced this session.** Confirmed directly
+against both `data/section_1_2_results.db` and
+`data/section_1_survival_results.db` -- both contain only
+`extinction`/`rescue`/`snapshot` event types, never `species_emergence`.
+
+**Root cause**, traced to `_update_species()`: the species-emergence
+fossilization loop ran *before* `self.species_reps`/`self.species_map`
+were reassigned to the new cluster state, so `_fossilize()`'s own
+guard (`if species_id not in self.species_reps: return`) silently
+no-opped on every single emergence call -- a brand-new species_id is
+by construction never a key of the *old* `self.species_reps` dict.
+This has been present since the fossil-record system was first built
+in Section 1.1, predating everything from today.
+
+**Fix**: `_fossilize()` now takes explicit `reps_source`/`map_source`
+parameters (defaulting to `self.species_reps`/`self.species_map`,
+correct for extinction and snapshot calls); the species_emergence call
+site passes `new_reps`/`new_map` explicitly, since those are the
+correct source at that point in the function, not yet assigned to
+`self.*`. Verified directly: a fresh run now produces a healthy,
+roughly-balanced mix of emergence and extinction records (32 vs. 31 in
+a 3000-tick spot check).
+
+**Audited for the same defect class elsewhere**: every early-return
+guard in the entire codebase (`src/world.py`, `src/creature.py`,
+`src/genome.py`, `src/persistence.py`) was enumerated -- only three
+exist in total. The `intervention.enabled` check and the empty-
+population check in `_update_species` are both correctly intentional
+guards, not silent no-ops on a legitimate call. The fossilization guard
+above was the only instance of this defect class.
+
+**Bias quantification, computed from the existing (buggy) databases
+before any re-run**, per the identity `emergences = extinctions +
+species_alive_at_end`, so implied true turnover =
+`2 x extinctions + species_alive_at_end`:
+
+| arm | median extinctions (old N) | median alive at end | median implied true N | undercount |
+|---|---|---|---|---|
+| evolving_floor_0.001 | 285.0 | 1.0 | 571.0 | 50.1% |
+| evolving_floor_0.002 | 262.5 | 1.0 | 527.0 | 50.2% |
+| evolving_floor_0.004 | 250.5 | 1.0 | 503.0 | 50.2% |
+| fixed_0.001 | 22.0 | 1.0 | 45.0 | 51.1% |
+| fixed_0.002 | 18.0 | 1.0 | 37.0 | 51.4% |
+| fixed_0.005 | 27.0 | 1.0 | 55.0 | 50.9% |
+| fixed_0.02 | 71.5 | 1.0 | 144.0 | 50.3% |
+| fixed_0.05 | 321.0 | 1.0 | 643.5 | 50.1% |
+| fixed_0.1 | 632.5 | 2.0 | 1269.0 | 50.2% |
+| fixed_0.2 | 19079.5 | 4.5 | 38163.0 | 50.0% |
+
+The undercount is close to uniform (~50.0-51.4%) across every arm, and
+the differential term the concern specifically named (species alive
+at run end, which should be small for frozen arms and large for
+actively-diversifying ones) turns out to be small and similar across
+nearly every arm (median 1, rising only to 2 and 4.5 for the two most
+extreme fixed-rate arms) -- not the sharp frozen-vs-thriving split the
+hypothesis anticipated. This does not settle whether the bug changed
+which arm wins; it means the *estimate* doesn't show a dramatic
+differential, and only the actual re-run resolves it, which is why the
+re-run happens regardless of what this table suggests.
+
+**A concrete, falsifiable prediction, stated before re-running**: the
+fix changes only fossil-record bookkeeping -- no `random()`/`np.random`
+call happens inside `_fossilize()`, so it consumes no RNG state and
+should not alter simulation physics, deaths, reproduction, or anything
+else. Given that, the corrected re-run's *direct* emergence+extinction
+count, for the same seeds, should exactly equal this table's implied
+true N (computed from the old buggy runs via the formula above). If it
+doesn't match, something beyond the fossilization bug changed between
+runs and needs its own explanation.
+
+**This re-run is the same pre-registered test with the instrument
+fixed, not a new hypothesis and not a goalpost move.** The arms,
+seeds, run length, primary/secondary statistics, per-arm freeze-
+threshold methodology, and pass criteria are unchanged from the
+Section 1 (revised) pre-registration and its extension. Only the
+measurement of "N" changes, from silently-extinction-only to the
+emergence+extinction total the harness was always supposed to compute.
+
+## Superseded results, marked rather than deleted
+
+The following results, reported and committed earlier, used the buggy
+turnover count (extinction-only) and are **superseded by the
+corrected re-run below**. Kept in the record rather than removed --
+the history of a wrong measurement being caught and corrected is worth
+more than a clean-looking document:
+
+- **"Section 1.2 results"** section above: its N values were also
+  extinction-only. This does not revive the retired punctuated-
+  equilibrium test -- S2 was retired for a documented statistical
+  reason (the intersection-union gate failing, audited for bias and
+  found sound) unrelated to this bug, and stays retired. Noted here
+  only so the record is complete about what else this bug touched.
+- **"Section 1 (revised) results -- persistence/survival test"**
+  section above, including its "Honest headline summary": every N,
+  every Mann-Whitney result, every Kaplan-Meier/log-rank result in
+  that section used extinction-only counts. Superseded by the
+  corrected re-run below.
+- The fixed_0.1/0.2 extension results reported inline (median N
+  321.0/632.5/19079.5 for fixed_0.05/0.1/0.2): superseded likewise.

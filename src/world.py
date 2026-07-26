@@ -445,7 +445,8 @@ class World:
                 self._fossilize(extinct_sid, "extinction")
 
         for new_sid in new_ids - old_ids:
-            self._fossilize(new_sid, "species_emergence", parent_species_id=self.species_parent.get(new_sid))
+            self._fossilize(new_sid, "species_emergence", parent_species_id=self.species_parent.get(new_sid),
+                             reps_source=new_reps, map_source=new_map)
 
         self.species_map = new_map
         self.species_reps = new_reps
@@ -480,11 +481,23 @@ class World:
 
         return clusters
 
-    def _fossilize(self, species_id: int, event_type: str, parent_species_id: Optional[int] = None):
-        if species_id not in self.species_reps:
+    def _fossilize(self, species_id: int, event_type: str, parent_species_id: Optional[int] = None,
+                   reps_source: Optional[Dict[int, Genome]] = None, map_source: Optional[Dict[int, List[int]]] = None):
+        """reps_source/map_source default to self.species_reps/species_map
+        (correct for extinction and snapshot calls, which reference
+        species already reflected in current state). species_emergence
+        must pass new_reps/new_map explicitly: it's called before
+        self.species_reps/species_map are reassigned to the new state
+        (see _update_species), so a brand-new species_id is never a key
+        of self.species_reps yet -- passing the defaults there silently
+        no-ops on every single emergence, which is exactly the bug this
+        parameter exists to prevent from recurring."""
+        reps_source = reps_source if reps_source is not None else self.species_reps
+        map_source = map_source if map_source is not None else self.species_map
+        if species_id not in reps_source:
             return
-        rep = self.species_reps[species_id]
-        pop = len(self.species_map.get(species_id, []))
+        rep = reps_source[species_id]
+        pop = len(map_source.get(species_id, []))
 
         record = FossilRecord(
             tick=self.tick,
