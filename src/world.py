@@ -4,7 +4,7 @@ import time
 from typing import List, Dict, Optional
 from dataclasses import dataclass, field
 from src.creature import Creature
-from src.genome import Genome, GENE_NAMES
+from src.genome import Genome, GENE_NAMES, MUT_RATE
 from src import persistence
 
 @dataclass
@@ -77,6 +77,10 @@ class World:
         self.temp_floor = icfg.get("temp_floor", 0.15)
         self.temp_ceiling = icfg.get("temp_ceiling", 2.5)
 
+        # Section 1.2 Arm B/B2: pins the mutation-rate gene instead of
+        # letting it evolve. None (default) leaves normal evolution intact.
+        self.fixed_mutation_rate = config.get("genome", {}).get("fixed_mutation_rate")
+
         db_path = config["world"].get("db_path")
         if db_path:
             self.db_conn = persistence.open_db(db_path)
@@ -120,10 +124,13 @@ class World:
         w, h = self.resources.shape
         for _ in range(n):
             x, y = random.randint(0, w-1), random.randint(0, h-1)
+            genome = Genome()
+            if self.fixed_mutation_rate is not None:
+                genome.genes[MUT_RATE] = self.fixed_mutation_rate
             c = Creature(
                 id=self.next_creature_id,
                 x=x, y=y,
-                genome=Genome(),
+                genome=genome,
                 energy=self.cfg["creatures"]["base_energy"],
                 generation=0,
             )
@@ -162,10 +169,13 @@ class World:
         new_creatures = []
         for _ in range(8):
             x, y = random.randint(0, w-1), random.randint(0, h-1)
+            genome = Genome()
+            if self.fixed_mutation_rate is not None:
+                genome.genes[MUT_RATE] = self.fixed_mutation_rate
             c = Creature(
                 id=self.next_creature_id,
                 x=x, y=y,
-                genome=Genome(),
+                genome=genome,
                 energy=self.cfg["creatures"]["base_energy"] * 1.5,
                 generation=0,
             )
@@ -334,7 +344,7 @@ class World:
                 continue
 
             if c.can_reproduce() and len(self.creatures) < self.cfg["creatures"]["max_population"]:
-                child = c.offspring(self.next_creature_id, w, h)
+                child = c.offspring(self.next_creature_id, w, h, fixed_mutation_rate=self.fixed_mutation_rate)
                 self.next_creature_id += 1
                 c.energy -= c.reproduce_cost()
                 self.creatures[child.id] = child
