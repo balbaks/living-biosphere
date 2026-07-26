@@ -838,3 +838,81 @@ Per the epistemic-status paragraph above: this whole test was confirmatory, desi
 Floor sensitivity (0.001/0.002/0.004): no material effect on either statistic within this range -- the evolving mechanism's performance doesn't depend on where this particular wall sits, at least here.
 
 Per standing instruction: no tuning, no threshold revision, no arm added in response to these results until they are recorded, committed, and read.
+
+## Process note: a pattern in the near-misses, worth watching
+
+Two things were caught before commit this session, both by the same
+mechanism (checking the actual numbers rather than trusting the
+transcription), and both pointed in the *flattering* direction before
+being caught:
+
+- The S1 exposure numbers, first transcribed into the Section 1.2
+  pre-registration, duplicated one value and dropped another.
+- This round's "which comparator fails the intersection-union claim"
+  logic had a broken `min()` that pointed at `fixed_0.001` (a level
+  evolving beats decisively) instead of the actual culprit,
+  `fixed_0.05` (the one that breaks the claim) -- the wrong answer
+  here would have hidden the actual finding, not just misstated a
+  number.
+
+Neither was caught by care alone -- both were caught by a verification
+step (re-checking against raw tool output, or re-deriving the logic
+by hand) that happened to run before the commit, not by the writing
+process itself. Worth treating as a standing prior: any generated or
+transcribed number that happens to land in the flattering direction
+gets the verification step *first*, not after something looks off.
+
+# Section 1 extension pre-registration -- bracketing the sweep's maximum
+
+Pre-registered 2026-07-26, before running, following the same
+gate as every other test this session. Config hash unchanged:
+`1b151603eb662fc4c94dcecf91ada7d08a34a181152dd8348aacf94475f45fb4`.
+
+**The question.** `fixed_0.05` was the top of the five-level sweep,
+chosen as the top of Arm A's *observed* range under a hypothesis about
+where evolving populations settle -- not chosen as a candidate maximizer
+of turnover. It won. That leaves the sweep's ceiling unbracketed: is
+turnover monotonically increasing in fixed mutation rate over the
+tested range, or does 0.05 sit near a genuine optimum? These have
+different implications. Monotonic increase means the sweep never
+found the top, and the comparison to evolving was never really fair in
+the intended sense. A plateau or decline means 0.05 is a real ceiling
+and the bounded-pass framing already recorded stands as the actual
+answer, not a placeholder.
+
+**Epistemic status, stated as plainly as the last amendment.** This
+extension was chosen *after* seeing `fixed_0.05` win. It is not a
+blind pre-registration -- it's confirmatory of the specific observation
+that the sweep's top level was also its best performer, and it carries
+correspondingly less weight than an independent prediction would.
+
+**Design.** Two additional fixed levels, `0.1` and `0.2`, 10 seeds
+each, same 40,000-tick run length, same primary statistic (turnover
+count) and same phase-1-then-phase-2 discipline as the main survival
+test. ~20 runs, measured throughput from the last round (~170s/run,
+2-way parallel) implies roughly 28-30 minutes wall-clock.
+
+**Predictions and both branches, stated before running:**
+- If turnover keeps climbing (0.1 and/or 0.2 beat 0.05's median): the
+  honest conclusion is that the sweep never bracketed the true maximum,
+  and — combined with the fact that Arm A's evolving population
+  converges toward the floor (0.002), roughly 25x below the
+  level that already outperforms it — evolution is not finding
+  whatever optimum exists either. That would sharpen, not soften,
+  the bounded-pass framing: not just "a well-chosen high rate does as
+  well," but "evolution is moving in the opposite direction from
+  whatever is actually best for sustained turnover."
+- If turnover plateaus or falls at 0.1/0.2: 0.05 is near-optimal within
+  the range that matters, and the already-recorded bounded-pass result
+  stands unchanged -- this extension would confirm the comparison was
+  fair, not overturn it.
+
+**What this cannot establish, regardless of outcome, stated before
+running so neither branch gets over-read**: turnover count is not
+fitness. Selection optimizes reproductive success, not turnover count
+-- a constant rate beating the evolving mechanism on turnover is not,
+by itself, evidence that evolution is failing at its own objective.
+It is evidence about what sustains *this specific measured quantity*,
+which was chosen as a proxy for "the world staying interesting," not
+as a definition of what selection is actually for. Both outcomes below
+should be read against that limit, not past it.
