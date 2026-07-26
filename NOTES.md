@@ -528,3 +528,218 @@ B showing higher raw dispersion, not lower). What the evolving
 mechanism may actually be doing -- keeping turnover alive at all,
 rather than making it burstier -- is a different, unregistered
 question the Arm B write-up above raises for next time.
+
+# Section 1 definition-of-done amendment
+
+Section 1.2's dispersion criterion (S2, punctuated equilibrium) failed
+and is retired, not retried. Punctuated equilibrium was the original
+hypothesis. It was pre-registered blind, validated on synthetic ground
+truth, executed honestly, and audited for bias when the result looked
+unfavorable -- the audit came back against the objection that would
+have rescued it, not in its favor (see "Post-result audit" above).
+The result stands: this world's turnover structure isn't burstier
+under an evolving mutation rate than under a fixed one. Retuning the
+simulation until a dispersion criterion passes would optimize toward
+proving a hypothesis already fairly rejected, not toward understanding
+the system.
+
+**Replacement definition of done for Section 1**: does a heritable
+mutation rate sustain evolutionary turnover materially longer than any
+fixed rate? Grounded directly in the Arm B collapse above (median N a
+tenth of Arm A's, 7/10 freeze rate vs 2/10, freezing almost
+immediately when it does).
+
+**Epistemic status, stated plainly rather than dressed up as a clean
+prediction**: this hypothesis was formed after seeing Arm B's data.
+The test below is confirmatory of an observation already made, not an
+independent blind prediction the way the original punctuated-
+equilibrium test was. A pass in the pre-registration below carries
+less evidentiary weight than a blind pre-registration would have --
+it is evidence consistent with a pattern already seen in the data that
+generated the hypothesis, which is weaker confirmation than predicting
+something not yet observed. This is not softened anywhere below.
+
+# Section 1 (revised) pre-registration -- persistence/survival test
+
+Pre-registered 2026-07-26, before any arm of this design has been run.
+Config hash: `1b151603eb662fc4c94dcecf91ada7d08a34a181152dd8348aacf94475f45fb4`
+(unchanged since the Section 1.2 pre-registration above -- no
+simulation code or config has changed for this design).
+
+## What's being tested
+
+Not burstiness (retired above). Whether a heritable, evolving mutation
+rate sustains turnover for materially longer than any single fixed
+rate -- the hypothesis the Arm B collapse raised.
+
+## Defeating the level confound: a fixed-rate sweep, not one point
+
+Arm B's fixed 0.0053 confounded "evolving vs fixed" with "higher vs
+lower than A's realized median (0.0020)." A single fixed comparison
+point cannot separate those. Five fixed levels, spanning and exceeding
+Arm A's observed range: **0.001, 0.002, 0.005, 0.02, 0.05**. Plus the
+evolving arm. Six arms total.
+
+**Floor-clamping checked directly, not assumed**: `fixed_mutation_rate`
+overwrites the gene after `Genome.__init__`'s clip already ran,
+bypassing both `GENE_MIN[MUT_RATE]` (0.001) and a separate, stricter
+floor hardcoded inside `mutate()` (0.002) that only applies to
+*evolving* genomes. Verified empirically: requesting 0.001, or even
+0.0005, sticks exactly, unclamped. All five sweep levels are genuinely
+distinct arms -- no wasted sweep point from an unnoticed floor
+collision.
+
+## Primary statistic: total turnover count over 40,000 ticks
+
+**Changed from the original proposal (survival analysis) after a
+specific, decisive objection**: log-rank power is driven by observed
+*event* count (freezes), not seed count. Last round, the evolving arm
+froze in only 2/10 seeds -- log-rank would have ~2 events to work
+with against 8 censored observations, near-powerless, indistinguishable
+from a true null regardless of the actual effect. Turnover count is
+continuous and every seed contributes a value regardless of whether it
+froze, which is why it's primary here instead.
+
+**Power, checked directly against last round's actual data, not
+assumed**: Mann-Whitney U on raw turnover count, Arm A (evolving) vs
+Arm B (fixed 0.0053): U=99.5, **p=0.000106, r=0.990** -- a near-maximal
+effect (the only rank overlap is A's minimum, 49, exactly equaling B's
+maximum, 49). Bootstrap power simulation (resampling n=10 with
+replacement from each arm's observed distribution, 2000 trials):
+**power = 1.000 at n=10/arm, and still 1.000 at n=5/arm.** This
+statistic is not underpowered for an effect of the size already
+observed. Caveat: this benchmarks specifically against the 0.0053
+comparison -- the other four sweep levels' true effect sizes are
+unknown until run, but n=10/arm is well-justified given how large the
+benchmark effect was.
+
+**Test**: nonparametric (Mann-Whitney, pairwise) across the six arms.
+Multiplicity handling (see below) governs how the six pairwise
+contrasts combine into the overall claim.
+
+## Secondary/corroborating statistic: survival analysis (Kaplan-Meier + log-rank)
+
+Kept as corroborating evidence, not the gate. Time-to-event framing is
+still the right model for *why* a seed stopped turning over, even
+though it lacks power as the primary test.
+
+**Freeze definition -- per-arm derived, not universal, per the bias
+check below.** A seed's last-turnover-event tick is treated as an
+*observed freeze* only if the trailing silence to run-end exceeds that
+**arm's own** p99.9 of the healthy inter-event-gap distribution,
+computed from that same arm's non-plateaued seeds once the sweep
+finishes running. Otherwise the seed is right-censored.
+
+**Why per-arm, not universal, stated with the evidence**: the
+universal threshold from the original design (17,165 ticks) was
+derived mostly from evolving-arm data. Checked directly: Arm A+D's
+own (corrected, evolving-only) non-plateaued gap distribution has
+mean 143.2, p95=370, p99.9=11,394 (built on only ~4.3 gaps out of
+4336 -- an unstable estimate on its own). Arm B's non-plateaued gap
+distribution (only 3 seeds, 94 gaps, but enough to make the point):
+mean **1122** (~8x evolving arms'), p95=**10,924** (~29x evolving
+arms'). The single largest gap in the entire dataset (23,110 ticks)
+belongs to Arm B, not an evolving arm, and is an *internal* gap in a
+still-active seed (8 more events followed it) -- not even the
+seed's trailing gap. A universal threshold anywhere near evolving
+arms' p99.9 sits inside Arm B's *normal* range, which would
+systematically over-detect freezes in low-turnover fixed arms exactly
+where the hypothesis needs a fair comparison.
+
+**Retrospective flip-check, reported honestly**: re-classifying Arm
+B's 7 already-plateaued seeds against an Arm-B-specific threshold (its
+own observed max healthy gap, 23,110) instead of the universal one
+produces **zero flips** -- their trailing silences (32,500-39,780
+ticks) are extreme enough to read as frozen under any reasonable
+threshold. The bias is real and demonstrated in the underlying
+distributions; it didn't happen to change last round's classifications.
+It is not assumed to be equally inconsequential for the other four
+sweep levels, whose collapse severity (if any) is unknown until run --
+per-arm derivation is required for this design regardless.
+
+**Time variable and censoring, stated explicitly**: time variable is
+the last-turnover-event tick. Effective censoring time is
+`40,000 - K_arm`, where `K_arm` is that arm's own derived threshold --
+*not* 40,000 uniformly, since a freeze in the last `K_arm` ticks of
+the run cannot be confirmed (there isn't enough runway left to observe
+the required silence). Because `K_arm` differs by arm, the six arms'
+Kaplan-Meier curves will have different effective censoring
+boundaries. This is a real limitation of the secondary analysis,
+stated rather than smoothed over -- acceptable because survival
+analysis is corroborating here, not the gate.
+
+**Validation approach, scoped differently than S1-vs-S2's, and that
+difference is stated rather than hidden**: Kaplan-Meier and log-rank
+are decades-old, well-established methods, not novel statistics --
+their validity isn't being re-derived from scratch the way S1 vs S2
+needed. A lightweight synthetic sanity check (known-different survival
+times between two synthetic groups -> confirm log-rank detects it;
+known-identical distributions -> confirm no spurious significance)
+substitutes for the full N-sweep bias audit S2 required. `lifelines`
+is added as a new dependency for the implementation -- correctness on
+censored data is exactly where a hand-rolled implementation risks a
+subtle bug a well-tested library wouldn't have.
+
+## Multiplicity handling
+
+**"Evolving beats every fixed level"** is an intersection-union claim
+requiring all five pairwise contrasts (evolving vs each of the five
+levels) to hold. Conservative by construction, no multiple-comparison
+correction needed for this claim specifically.
+
+**Failure branch A ("evolving matches or is beaten by the best fixed
+level") pre-specifies its comparator now, not after seeing which level
+scores best**: the primary pairwise contrast for this branch is
+**evolving vs. fixed 0.002** (matching Arm A's realized median from
+the original run) -- chosen because it's a property of the system
+already established before this design, not picked because it will
+turn out to score best. The other four levels stay in the
+intersection-union test and are reported descriptively; they are not
+mined post-hoc for "the best" comparator.
+
+## Seeds, run length, compute cost
+
+40,000 ticks (unchanged -- already shown to give slower-freezing arms
+room to either freeze or clearly not). 10 seeds per arm (power
+analysis above supports this comfortably for an effect of the
+benchmark size; not reduced, since compute cost was not the
+constraint the power check flagged).
+
+**Primary sweep: 6 arms x 10 seeds = 60 runs.** At ~186s/run measured
+previously, 2-way parallel: ~62 minutes wall-clock.
+
+**Floor-sensitivity follow-up, scoped as specified**: 2 additional
+mutation-rate-floor values (half and double the current 0.002),
+evolving arm only, 10 seeds each = 20 more runs (~62 more minutes).
+Answers whether evolving-rate survival depends on where this wall is
+set, without a full floor x fixed-rate combinatorial grid.
+
+**Total: 80 runs, ~124 minutes (~2 hours).**
+
+## Predicted outcomes and failure branches, stated before running
+
+- Expected if the hypothesis holds: evolving's turnover count
+  (primary) and survival time (secondary) exceed every fixed level's,
+  with the evolving-vs-0.002 contrast significant and the
+  intersection-union claim holding across all five levels.
+- Failure branch A: evolving matches or is beaten by the pre-specified
+  0.002 comparator -> a well-chosen static rate does as well; the
+  evolving mechanism doesn't uniquely help.
+- Failure branch B: evolving is beaten by *all* five levels, including
+  very low ones -> the heritable mechanism is actively harmful for
+  persistence, a stronger negative result than branch A.
+- "Evolving does nothing useful" concretely means: the evolving-vs-
+  0.002 Mann-Whitney is not significant, or favors 0.002.
+- Floor-sensitivity failure mode: if evolving's advantage (if any)
+  appears or disappears depending on the floor value tested, that is a
+  finding about this config's floor placement, not about evolvability
+  in general -- stated now so it reads as anticipated, not
+  discovered.
+
+## Epistemic status, restated from the amendment above
+
+This entire pre-registration is confirmatory, not blind -- it was
+designed after seeing the Arm B collapse that motivates it. A pass
+below is evidence consistent with an already-observed pattern, not an
+independent prediction verified against new information. Weighted
+accordingly when interpreting any result.
