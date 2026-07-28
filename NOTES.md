@@ -1175,3 +1175,111 @@ which need a destination that hasn't been specified. This is a real
 gap: these databases represent hours of compute and are currently a
 single-machine point of failure. Flagged, not silently left
 unaddressed -- resolving it needs a destination to be named.
+
+## The re-run was insurance that paid out nothing, not a save
+
+Stated plainly so it isn't overstated later: the corrected re-run
+changed no conclusion. Every pairwise Mann-Whitney p-value and effect
+size in Phase 2 matched the buggy run's to the reported precision. The
+intersection-union claim failed on the same comparator (fixed_0.05,
+p=0.740/r=-0.160, identical in both runs). The pre-specified primary
+contrast won identically (p=0.00009, r=1.000, identical in both runs).
+The monotonic-climb-through-0.2 pattern held at the same relative
+magnitudes. We would have reached the same findings on the buggy data.
+
+Running it anyway was still the right call, not a redundant one: the
+correction term's structure (`species_alive_at_end`, hypothesized to
+scale differently across frozen vs. thriving arms) was a genuine,
+specific, and unknowable-in-advance risk to exactly the comparison
+that mattered most. It turned out not to bite. That is a fact about
+this dataset, discovered by checking, not a fact that could have been
+assumed going in. Recording it as insurance that happened not to pay
+out -- not as a vindication of skipping verification next time.
+
+# Section 1 -- closing summary
+
+**What was originally claimed.** The master plan's stated centerpiece:
+a heritable, evolving mutation-rate gene would produce punctuated-
+equilibrium dynamics -- long stable stretches interrupted by bursts,
+driven by high-mutation "explorer" lineages taking over after
+environmental shocks. Framed from the outset as sitting in well-
+trodden artificial-life territory (Tierra, Avida, Polyworld), not a
+novel mechanism -- the intended contribution was presentation and
+narrative, not the mechanism itself.
+
+**What was tested and failed.** A dispersion-based statistic (S2, Fano
+factor of window-total turnover counts), chosen and validated against
+synthetic ground truth after an initial candidate (S1) was found
+unreliable by the same method. Pre-registered blind: window size
+(100 ticks, derived from measured species-lifetime and inter-event-
+interval distributions), null model (permutation, chosen over Poisson
+after checking why Poisson wouldn't reproduce the observed epoch-
+batching), three arms (evolving, fixed-rate, shocks-disabled), and a
+combined pass criterion, all before any run. The central gate --
+Mann-Whitney on standardized S2 excess, evolving vs. fixed -- failed.
+An audit specifically checked whether the failure was a low-N
+statistical artifact (which would have rescued it): tested on synthetic
+ground truth, independent of this project's own data, and it came back
+against the objection. The result was retired, not retried: this
+world's turnover isn't burstier under an evolving mutation rate than
+under a fixed one.
+
+**What replaced it, and how it fared.** The retired test's own data
+surfaced something else: a fixed rate held at the evolving arm's
+realized level collapsed into permanent single-species stasis far more
+often, and far faster, than the evolving arm did (7/10 seeds frozen
+vs. 2/10, median turnover a tenth of the evolving arm's). This became
+a new hypothesis -- does a heritable mutation rate sustain turnover
+longer than any fixed rate -- stated explicitly as confirmatory, not
+blind, since it was formed after seeing that data. Pre-registered
+separately: a five-level fixed-rate sweep (0.001-0.05) plus a
+floor-sensitivity check, turnover count as the primary statistic
+(power-checked before running: p=0.000106, r=0.990 on the motivating
+comparison), Kaplan-Meier/log-rank as corroborating, per-arm freeze
+thresholds derived from synthetic-validated methodology rather than a
+universal threshold later shown to be biased. Result: evolving beat
+fixed rates 0.001, 0.002, 0.005, and 0.02 decisively (all p<=0.002)
+but not fixed 0.05 (p=0.740). A follow-up extension (0.1, 0.2), itself
+labeled confirmatory since it was chosen after seeing 0.05 win, found
+turnover still climbing through 0.2 with no sign of a plateau.
+A previously-undetected measurement bug (species_emergence was never
+fossilized, present since Section 1.1) was found, fixed, and the whole
+test re-run on the corrected instrument -- the re-run changed no
+conclusion (see above), but was not knowable to be unnecessary in
+advance.
+
+**The honest conclusion.** The mechanism's demonstrated value in this
+world is avoiding collapse to a low, unproductive mutation rate --
+not outperforming every possible constant. A sufficiently high fixed
+rate (0.05 and above) sustains turnover as well or better, with no
+adaptation at all. Selection drives the evolved rate toward the
+genome's floor (median 0.002), away from the turnover-maximizing
+direction entirely -- unsurprising once stated plainly: selection
+optimizes reproductive fitness, not turnover count, and nothing in
+this test measured fitness. A constant beating the evolving mechanism
+on turnover is not evidence the evolving mechanism is failing at its
+own job; it is evidence about what sustains this one measured proxy,
+which was chosen as a stand-in for "the world staying interesting,"
+not as a definition of evolutionary success.
+
+**What remains unknown**, stated as open rather than implied answered:
+whether any of this holds under a different world size, resource
+regime, or genome mutation-rate floor than the ones tested; whether
+turnover count -- the metric this entire arc was built around --
+correlates with anything a viewer watching the world would actually
+find interesting to look at. Nothing here establishes either.
+
+**Process record, for the audit trail.** Three bugs found and fixed
+this arc: `species_id` reuse (a monotonic-counter fix, caught before
+it corrupted every downstream lineage feature), `ice_age`/`heat_wave`
+temperature multipliers never expiring (permanent resource collapse),
+and `species_emergence` never being fossilized (present since Section
+1.1, found while investigating an unrelated mechanistic question).
+Two near-misses caught before commit, both pointing in the flattering
+direction: a transcription error in the S1 exposure numbers, and a
+broken `min()` that pointed at the wrong (favorable) comparator. One
+methodology invalidated: same-seed cross-version comparison, replaced
+by distributional (10+ seed) verification as a standing rule. One
+objection raised against an unfavorable result (possible low-N bias in
+gate 3), tested on synthetic ground truth, and withdrawn when the test
+came back against it.
