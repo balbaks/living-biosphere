@@ -1121,3 +1121,57 @@ Every pairwise Mann-Whitney p-value and effect size in Phase 2 is unchanged (to 
 This does not make the bug acceptable to have shipped. It was a real defect, present since Section 1.1, that silently discarded half the intended signal in every turnover measurement this session -- it happened not to change these particular comparisons, but there was no way to know that without finding and fixing it and checking. A different set of arms, or a comparison closer to the fixed_0.05 boundary, could easily have gone the other way.
 
 **All 'Superseded results' sections above are now formally replaced by this corrected run. The bounded-pass framing, the fixed_0.05 finding, and the monotonic-climb-through-0.2 finding all stand -- now on a verified-correct instrument, not an assumed-correct one.**
+
+# Persistence decision: raw databases are not git-tracked
+
+**What's tracked, what isn't, and why.** `data/*.db` (the raw SQLite
+databases -- per-tick fossil records for every run) are gitignored and
+were force-added twice this session anyway, reaching 67MB then 117MB
+across two commits. This project is meant to run indefinitely; that
+growth curve doesn't stop, and GitHub's hard 100MB single-file limit
+was hit on the second one, blocking a push outright. git-lfs was
+considered and rejected -- it has its own storage quotas, and paying
+to host per-tick fossil records so the numbers are *theoretically*
+re-derivable from them is the wrong trade against a much cheaper
+alternative that achieves the same actual goal.
+
+**What "persist everything" now means in practice**: not "the raw
+database is GitHub-hosted," but "every input to every reported
+statistic is re-derivable from something in the repo." That's met by
+`data/section_1_corrected_run_summary.csv` -- one row per run (100
+rows: the corrected re-run's full 10 arms x 10 seeds), columns
+`run_id, config_hash, seed, arm, extinction_count, emergence_count,
+species_alive_at_end, total_turnover, last_event_tick,
+freeze_classification, rescue_count`. Generated programmatically by
+`scripts/generate_run_summary_table.py`, querying the database
+directly (not any intermediate JSON), same rule as every NOTES.md
+results section -- no hand-assembly. This is diffable, human-readable,
+and covers every number that fed into every Mann-Whitney/log-rank
+result reported above.
+
+(Noting the count explicitly since it was stated as 80 rows when this
+was requested: the corrected re-run is 100 rows, 10 arms x 10 seeds,
+including the fixed_0.1/0.2 extension arms folded into the same run --
+not 80. Flagging the discrepancy rather than silently matching the
+stated number.)
+
+**Two large DBs already exist in already-pushed history**
+(`section_1_survival_results.db`, added in commit `aa06d55`, 67MB) --
+left alone deliberately, per instruction: rewriting that commit's
+hash to scrub it buys nothing epistemically, and it's already within
+GitHub's hard limit. The corrected run's database
+(`section_1_corrected_results.db`, 117MB) was never successfully
+pushed -- the push attempt was rejected outright -- so that specific
+commit was amended locally before ever reaching the remote, rather
+than carrying a blob that would only get rejected again on every
+future push touching that commit range.
+
+**Where the raw data actually lives**: every `.db` file stays on this
+machine, at `data/*.db`, fully queryable, and is the authoritative
+source the summary CSV and every NOTES.md table were generated from.
+Not yet backed up off-machine -- no cloud storage tooling (rclone,
+aws-cli, gsutil) is configured on this system, only `rsync`/`scp`,
+which need a destination that hasn't been specified. This is a real
+gap: these databases represent hours of compute and are currently a
+single-machine point of failure. Flagged, not silently left
+unaddressed -- resolving it needs a destination to be named.
